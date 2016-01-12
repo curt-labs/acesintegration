@@ -1,9 +1,8 @@
 package curtdmi
 
 import (
-	// "encoding/csv"
 	"encoding/xml"
-	// "log"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -36,7 +35,6 @@ type App struct {
 	WheelBase    WheelBase
 	DriveType    DriveType
 	BedLength    BedLength
-	Aspiration   Aspiration
 	BedType      BedType
 }
 
@@ -89,6 +87,19 @@ type Config struct {
 	Value string
 }
 
+func GetDCIVehicles() (map[string][]DmiVehicleApplication, error) {
+	vehicleMap := make(map[string][]DmiVehicleApplication)
+	ds, err := GetDMIVehicleApplications()
+	if err != nil {
+		return vehicleMap, err
+	}
+
+	for _, d := range ds {
+		vehicleMap[d.Key] = append(vehicleMap[d.Key], d)
+	}
+	return vehicleMap, err
+}
+
 func GetDMIVehicleApplications() ([]DmiVehicleApplication, error) {
 	var ds []DmiVehicleApplication
 
@@ -107,8 +118,13 @@ func GetDMIVehicleApplications() ([]DmiVehicleApplication, error) {
 		return ds, err
 	}
 
-	var d DmiVehicleApplication
+	err = getVcdbConfigMaps()
+	if err != nil {
+		return ds, err
+	}
 	for _, app := range res.Apps {
+		var d DmiVehicleApplication
+
 		//assign base vehicle
 		if vcdbBase, ok := basemap[app.BaseVehicle.ID]; !ok {
 			//TODO non-vcdb base
@@ -128,8 +144,7 @@ func GetDMIVehicleApplications() ([]DmiVehicleApplication, error) {
 			}
 		}
 		//assign configs
-		err = d.processConfigs(app)
-
+		d.processConfigs(app)
 		//assign part
 		d.Part = strconv.Itoa(app.PartID)
 
@@ -155,10 +170,51 @@ func ParseXML() (Result, error) {
 	return res, err
 }
 
-func (d *DmiVehicleApplication) processConfigs(app App) error {
-	var err error
-	//TODO - left off here
-	return err
+func (d *DmiVehicleApplication) processConfigs(app App) {
+
+	if app.BedLength.ID > 0 {
+		c := Config{
+			Type:  "Bed Length",
+			Value: BedLengthMap[app.BedLength.ID],
+		}
+		d.Configs = append(d.Configs, c)
+	}
+	if app.BedType.ID > 0 {
+		c := Config{
+			Type:  "Bed Type",
+			Value: BedTypeMap[app.BedType.ID],
+		}
+		d.Configs = append(d.Configs, c)
+	}
+	if app.BodyType.ID > 0 {
+		c := Config{
+			Type:  "Body Type",
+			Value: BodyTypeMap[app.BodyType.ID],
+		}
+		d.Configs = append(d.Configs, c)
+	}
+	if app.BodyNumDoors.ID > 0 {
+		c := Config{
+			Type:  "Number of Doors",
+			Value: BodyNumDoorsMap[app.BodyNumDoors.ID],
+		}
+		d.Configs = append(d.Configs, c)
+	}
+	if app.WheelBase.ID > 0 {
+		c := Config{
+			Type:  "Wheel Base",
+			Value: WheelBaseMap[app.WheelBase.ID],
+		}
+		d.Configs = append(d.Configs, c)
+	}
+	if app.DriveType.ID > 0 {
+		c := Config{
+			Type:  "Drive Type",
+			Value: DriveTypeMap[app.DriveType.ID],
+		}
+		d.Configs = append(d.Configs, c)
+	}
+	return
 }
 
 //vcdb Maps
@@ -168,6 +224,13 @@ var (
 		join Make ma on ma.MakeID = b.MakeID
 		join Model mo on mo.ModelID = b.ModelID`
 	vcdbSubmodelStmt = `select s.SubmodelID, s.SubmodelName from Submodel s`
+
+	BodyTypeMap     map[int]string
+	BodyNumDoorsMap map[int]string
+	WheelBaseMap    map[int]string
+	DriveTypeMap    map[int]string
+	BedLengthMap    map[int]string
+	BedTypeMap      map[int]string
 )
 
 func getVcdbBaseMap() (map[int]BaseVehicle, error) {
@@ -224,7 +287,80 @@ func getVcdbSubmodelMap() (map[int]SubModel, error) {
 	return themap, nil
 }
 
-//NOT USED ACES CONFG TYPES:
+func getVcdbConfigMaps() error {
+	var err error
+	configTypeArray := map[string]string{
+		"BodyType":     "BodyTypeName",
+		"BodyNumDoors": "BodyNumDoors",
+		"WheelBase":    "WheelBase",
+		"DriveType":    "DriveTypeName",
+		"BedLength":    "BedLength",
+		"BedType":      "BedTypeName",
+	}
+	for configType, name := range configTypeArray {
+		id := configType + "ID"
+		stmt := "select " + id + ", " + name + " from " + configType
+		switch configType {
+		case "BodyType":
+			BodyTypeMap, err = getVcdbConfigMap(stmt)
+			if err != nil {
+				return err
+			}
+		case "BodyNumDoors":
+			BodyNumDoorsMap, err = getVcdbConfigMap(stmt)
+			if err != nil {
+				return err
+			}
+		case "WheelBase":
+			WheelBaseMap, err = getVcdbConfigMap(stmt)
+			if err != nil {
+				return err
+			}
+		case "DriveType":
+			DriveTypeMap, err = getVcdbConfigMap(stmt)
+			if err != nil {
+				return err
+			}
+		case "BedLength":
+			BedLengthMap, err = getVcdbConfigMap(stmt)
+			if err != nil {
+				return err
+			}
+		case "BedType":
+			BedTypeMap, err = getVcdbConfigMap(stmt)
+			if err != nil {
+				return err
+			}
+		default:
+			log.Fatal("MISS", configType)
+		}
+	}
+	return nil
+}
+
+func getVcdbConfigMap(stmt string) (map[int]string, error) {
+	themap := make(map[int]string)
+	if err := database.Init(); err != nil {
+		return themap, err
+	}
+
+	rows, err := database.VCDB.Query(stmt)
+	if err != nil {
+		return themap, err
+	}
+	var s string
+	var i int
+	for rows.Next() {
+		err = rows.Scan(&i, &s)
+		if err != nil {
+			return themap, err
+		}
+		themap[i] = strings.TrimSpace(s)
+	}
+	return themap, err
+}
+
+//NOT USED ACES CONFG TYPES that are in our configAttributeType table:
 // FuelType
 // Engine
 // BrakeABS
