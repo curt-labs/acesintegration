@@ -10,7 +10,6 @@ func main() {
 
 	// curtAces()
 	curtDmi()
-	// acesDmi()
 
 }
 
@@ -47,20 +46,3 @@ func curtDmi() {
 	}
 	log.Print("DONE")
 }
-
-//TODO ?
-// func acesDmi() {
-// 	dvs, err := curtdmi.GetDCIVehicles()
-// 	if err != nil {
-// 		log.Print(err)
-// 	}
-// 	avs, err := curtaces.GetAcesVehicles()
-// 	if err != nil {
-// 		log.Print(err)
-// 	}
-// 	err = curtdmi.ProcessAcesToDci(avs, dvs)
-// 	if err != nil {
-// 		log.Print(err)
-// 	}
-// 	log.Print("DONE")
-// }
