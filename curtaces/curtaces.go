@@ -152,6 +152,7 @@ var (
 		left join VehicleConfigAttribute vca on vca.ID = vv.ConfigID
 		left join ConfigAttribute ca on ca.ID = vca.AttributeID 
 		left join ConfigAttributeType cat on ca.ConfigAttributeTypeID = cat.ID
+		where p.brandID = 1
 		`
 )
 
@@ -206,10 +207,11 @@ func GetAcesVehicles() (map[string][]AcesVehicleApplication, error) {
 	if err != nil {
 		return vs, err
 	}
-	var v AcesVehicleApplication
 	var part, submodel, cat, ca *string
 	count := 0
 	for rows.Next() {
+		var v AcesVehicleApplication
+
 		var con Config
 		err = rows.Scan(
 			&v.Year,
