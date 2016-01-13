@@ -132,7 +132,7 @@ func determineIntegrity(cvs []CurtVehicleApplication, avs []AcesVehicleApplicati
 
 //GET ALL CURT && ACES Vehicle Apps
 var (
-	getCurtVehiclesStmt = `select y.Year, ma.Make, mo.Model, s.Style, p.oldPartNumber
+	getCurtVehiclesStmt = `select y.Year, lower(ma.Make), lower(mo.Model), s.Style, p.oldPartNumber
 		from Vehicle v 
 		join VehiclePart vp on vp.vehicleID = v.vehicleID
 		join Part p on p.partID = vp.partID
@@ -141,7 +141,7 @@ var (
 		join Model mo on mo.modelID = v.modelID
 		join Style s on s.styleID = v.styleID
 		where p.brandID = 1`
-	getAcesVehiclesStmt = `select bv.yearID, vma.MakeName, vmo.ModelName, s.SubmodelName, cat.name, ca.value, p.oldPartNumber
+	getAcesVehiclesStmt = `select bv.yearID, lower(vma.MakeName), lower(vmo.ModelName), s.SubmodelName, cat.name, ca.value, p.oldPartNumber
 		from vcdb_Vehicle vv
 		join vcdb_VehiclePart vp on vp.vehicleID = vv.ID
 		join Part p on p.partID = vp.partNumber

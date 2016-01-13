@@ -131,8 +131,8 @@ func GetDMIVehicleApplications() ([]DmiVehicleApplication, error) {
 			continue
 		} else {
 			d.Year = float64(vcdbBase.Year)
-			d.Make = strings.TrimSpace(vcdbBase.Make)
-			d.Model = strings.TrimSpace(vcdbBase.Model)
+			d.Make = strings.TrimSpace(vcdbBase.Make)   //TODO lower to match curt?
+			d.Model = strings.TrimSpace(vcdbBase.Model) //TODO lower to match curt?
 		}
 		//assign submodel
 		if app.SubModel.ID > 0 {
