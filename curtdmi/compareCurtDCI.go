@@ -19,7 +19,7 @@ func ProcessCurtToDci(cvs map[string][]curtaces.CurtVehicleApplication, dvs map[
 	writer := csv.NewWriter(f)
 
 	//write header
-	header := []string{"Part", "Year", "Make", "Model", "Style", "Integrated", "Year", "Make", "Model", "Submodel", "Configs", "Notes"}
+	header := []string{"Part", "Year", "Make", "Model", "Style", "Integrated", "DCI Part Assoc.", "Year", "Make", "Model", "Submodel", "Configs", "Notes"}
 	err = writer.Write(header)
 	if err != nil {
 		return err
@@ -29,7 +29,7 @@ func ProcessCurtToDci(cvs map[string][]curtaces.CurtVehicleApplication, dvs map[
 	for key, cv := range cvs {
 		if matchingDciVehicle, ok := dvs[key]; !ok {
 			//write no match on Base Vehicle at all NO integrity
-			line := []string{cv[0].Part, strconv.FormatFloat(cv[0].Year, 'f', 1, 64), cv[0].Make, cv[0].Model, cv[0].Style, "N", "", "", "", "", "", "Base Vehicle (year|make|model) does not exist"}
+			line := []string{cv[0].Part, strconv.FormatFloat(cv[0].Year, 'f', 1, 64), cv[0].Make, cv[0].Model, cv[0].Style, "N", "", "", "", "", "", "", "Base Vehicle (year|make|model) does not exist in DCI data"}
 			err = writer.Write(line)
 			if err != nil {
 				return err
@@ -54,11 +54,11 @@ func determineIntegrity(cvs []curtaces.CurtVehicleApplication, dvs []DmiVehicleA
 		//CurtVehicle style == "all"
 		if strings.ToLower(cv.Style) == "all" {
 			integrity := "N"
-			notes := "Curt Vehicle Style = all BUT an DCI non-config/non-submodel DOES NOT exists (need base)"
+			notes := "Curt Vehicle Style = all BUT a DCI non-config/non-submodel DOES NOT exists (need base)"
 			for _, av := range dvs {
 				if av.Submodel == "" && len(av.Configs) == 0 {
 					integrity = "Y"
-					notes = "Curt Vehicle Style = all AND an DCI non-config/non-submodel exists"
+					notes = "Curt Vehicle Style = all AND a DCI non-config/non-submodel exists"
 				}
 			}
 			for _, av := range dvs {
@@ -69,17 +69,17 @@ func determineIntegrity(cvs []curtaces.CurtVehicleApplication, dvs []DmiVehicleA
 					}
 					cons += c.Type + ":" + c.Value
 				}
-				lines = append(lines, []string{cv.Part, strconv.FormatFloat(cv.Year, 'f', 1, 64), cv.Make, cv.Model, cv.Style, integrity, strconv.FormatFloat(av.Year, 'f', 1, 64), av.Make, av.Model, av.Submodel, cons, notes})
+				lines = append(lines, []string{cv.Part, strconv.FormatFloat(cv.Year, 'f', 1, 64), cv.Make, cv.Model, cv.Style, integrity, av.Part, strconv.FormatFloat(av.Year, 'f', 1, 64), av.Make, av.Model, av.Submodel, cons, notes})
 			}
 		} else {
-			//CurtVehicle style != "all"
+			//CurtVehicle style != "all" -- AUTOMATICALLY NO INTEGRITY
 			integrity := "N" //DCI vehicle DOES NOT have a submodel or config(s)
-			notes := "Curt Vehicle Style != all AND an DCI vehicle with either configs or a submodel DOES NOT exists"
+			notes := "Curt Vehicle Style != all AND a DCI vehicle with either configs or a submodel DOES NOT exists"
 			for _, av := range dvs {
 				if av.Submodel != "" || len(av.Configs) > 0 {
 					//DCI vehicle DOES have a submodel or config(s)
-					integrity = "Y"
-					notes = "Curt Vehicle Style != all AND an DCI vehicle with either configs or a submodel DOES exists"
+					integrity = "N"
+					notes = "Curt Vehicle Style != all AND a DCI vehicle with either configs or a submodel DOES exists (may/may not be a Curt style/Aces match) - REVIEW"
 				}
 			}
 
@@ -91,7 +91,7 @@ func determineIntegrity(cvs []curtaces.CurtVehicleApplication, dvs []DmiVehicleA
 					}
 					cons += c.Type + ":" + c.Value
 				}
-				lines = append(lines, []string{cv.Part, strconv.FormatFloat(cv.Year, 'f', 1, 64), cv.Make, cv.Model, cv.Style, integrity, strconv.FormatFloat(av.Year, 'f', 1, 64), av.Make, av.Model, av.Submodel, cons, notes})
+				lines = append(lines, []string{cv.Part, strconv.FormatFloat(cv.Year, 'f', 1, 64), cv.Make, cv.Model, cv.Style, integrity, av.Part, strconv.FormatFloat(av.Year, 'f', 1, 64), av.Make, av.Model, av.Submodel, cons, notes})
 			}
 		}
 	}

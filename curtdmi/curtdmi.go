@@ -154,6 +154,7 @@ func GetDMIVehicleApplications() ([]DmiVehicleApplication, error) {
 		//add to array
 		ds = append(ds, d)
 	}
+	log.Print(len(ds), " individual DCI Applications.")
 	return ds, err
 }
 

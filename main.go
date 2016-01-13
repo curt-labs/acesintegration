@@ -8,7 +8,7 @@ import (
 
 func main() {
 
-	// curtAces()
+	curtAces()
 	curtDmi()
 
 }
@@ -18,6 +18,7 @@ func curtAces() {
 	if err != nil {
 		log.Print(err)
 	}
+	log.Print(len(cvs), " Curt Base vehicles in DB")
 
 	avs, err := curtaces.GetAcesVehicles()
 	if err != nil {
@@ -28,6 +29,8 @@ func curtAces() {
 	if err != nil {
 		log.Print(err)
 	}
+	log.Print(len(avs), " ACES Base vehicles in DB")
+
 	log.Print("DONE")
 }
 
@@ -36,10 +39,14 @@ func curtDmi() {
 	if err != nil {
 		log.Print(err)
 	}
+	log.Print(len(dvs), " DCI Base vehicles")
+
 	cvs, err := curtaces.GetCurtVehicles()
 	if err != nil {
 		log.Print(err)
 	}
+	log.Print(len(cvs), " Curt Base vehicles in DB")
+
 	err = curtdmi.ProcessCurtToDci(cvs, dvs)
 	if err != nil {
 		log.Print(err)

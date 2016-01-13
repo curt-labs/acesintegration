@@ -2,6 +2,7 @@ package curtaces
 
 import (
 	"encoding/csv"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -41,14 +42,14 @@ type Config struct {
 //CheckIntegrity
 func Process(cvs map[string][]CurtVehicleApplication, avs map[string][]AcesVehicleApplication) error {
 	//set up file
-	f, err := os.Create("integrity.csv")
+	f, err := os.Create("integrityCurtAces.csv")
 	if err != nil {
 		return err
 	}
 	writer := csv.NewWriter(f)
 
 	//write header
-	header := []string{"Part", "Year", "Make", "Model", "Style", "Integrated", "Year", "Make", "Model", "Submodel", "Configs", "Notes"}
+	header := []string{"Part", "Year", "Make", "Model", "Style", "Integrated", "ACES Part Assoc.", "Year", "Make", "Model", "Submodel", "Configs", "Notes"}
 	err = writer.Write(header)
 	if err != nil {
 		return err
@@ -58,7 +59,7 @@ func Process(cvs map[string][]CurtVehicleApplication, avs map[string][]AcesVehic
 	for key, cv := range cvs {
 		if matchingAcesVehicle, ok := avs[key]; !ok {
 			//write no match on Base Vehicle at all NO integrity
-			line := []string{cv[0].Part, strconv.FormatFloat(cv[0].Year, 'f', 1, 64), cv[0].Make, cv[0].Model, cv[0].Style, "N", "", "", "", "", "", "Base Vehicle (year|make|model) does not exist"}
+			line := []string{cv[0].Part, strconv.FormatFloat(cv[0].Year, 'f', 1, 64), cv[0].Make, cv[0].Model, cv[0].Style, "N", "", "", "", "", "", "", "Base Vehicle (year|make|model) does not exist"}
 			err = writer.Write(line)
 			if err != nil {
 				return err
@@ -98,21 +99,22 @@ func determineIntegrity(cvs []CurtVehicleApplication, avs []AcesVehicleApplicati
 					}
 					cons += c.Type + ":" + c.Value
 				}
-				lines = append(lines, []string{cv.Part, strconv.FormatFloat(cv.Year, 'f', 1, 64), cv.Make, cv.Model, cv.Style, integrity, strconv.FormatFloat(av.Year, 'f', 1, 64), av.Make, av.Model, av.Submodel, cons, notes})
+				lines = append(lines, []string{cv.Part, strconv.FormatFloat(cv.Year, 'f', 1, 64), cv.Make, cv.Model, cv.Style, integrity, av.Part, strconv.FormatFloat(av.Year, 'f', 1, 64), av.Make, av.Model, av.Submodel, cons, notes})
 			}
 		} else {
-			//CurtVehicle style != "all"
+			//CurtVehicle style != "all" -- AUTOMATICALLY NO INTEGRITY
 			integrity := "N" //Aces vehicle DOES NOT have a submodel or config(s)
-			notes := "Curt Vehicle Style != all AND an Aces vehicle with either configs or a submodel DOES NOT exists"
+			notes := "Curt Vehicle Style != all AND an Aces vehicle with either configs or a submodel DOES NOT exists in our ACES data"
 			for _, av := range avs {
 				if av.Submodel != "" || len(av.Configs) > 0 {
 					//Aces vehicle DOES have a submodel or config(s)
-					integrity = "Y"
-					notes = "Curt Vehicle Style != all AND an Aces vehicle with either configs or a submodel DOES exists"
+					integrity = "N"
+					notes = "Curt Vehicle Style != all AND an Aces vehicle with either configs or a submodel DOES exists (may/may not be a Curt style/Aces match) - REVIEW"
 				}
 			}
 
 			for _, av := range avs {
+				// log.Print(av)
 				var cons string //stringify configs into comma separated sets
 				for i, c := range av.Configs {
 					if i > 0 {
@@ -120,7 +122,7 @@ func determineIntegrity(cvs []CurtVehicleApplication, avs []AcesVehicleApplicati
 					}
 					cons += c.Type + ":" + c.Value
 				}
-				lines = append(lines, []string{cv.Part, strconv.FormatFloat(cv.Year, 'f', 1, 64), cv.Make, cv.Model, cv.Style, integrity, strconv.FormatFloat(av.Year, 'f', 1, 64), av.Make, av.Model, av.Submodel, cons, notes})
+				lines = append(lines, []string{cv.Part, strconv.FormatFloat(cv.Year, 'f', 1, 64), cv.Make, cv.Model, cv.Style, integrity, av.Part, strconv.FormatFloat(av.Year, 'f', 1, 64), av.Make, av.Model, av.Submodel, cons, notes})
 			}
 		}
 	}
@@ -165,7 +167,7 @@ func GetCurtVehicles() (map[string][]CurtVehicleApplication, error) {
 	}
 	var v CurtVehicleApplication
 	var style, part *string
-
+	count := 0
 	for rows.Next() {
 		err = rows.Scan(
 			&v.Year,
@@ -186,8 +188,9 @@ func GetCurtVehicles() (map[string][]CurtVehicleApplication, error) {
 		}
 		v.Key = strconv.FormatFloat(v.Year, 'f', 1, 64) + "|" + v.Make + "|" + v.Model
 		vs[v.Key] = append(vs[v.Key], v)
+		count++
 	}
-
+	log.Print(count, " individual CURT applications.")
 	return vs, nil
 
 }
@@ -205,7 +208,7 @@ func GetAcesVehicles() (map[string][]AcesVehicleApplication, error) {
 	}
 	var v AcesVehicleApplication
 	var part, submodel, cat, ca *string
-
+	count := 0
 	for rows.Next() {
 		var con Config
 		err = rows.Scan(
@@ -232,10 +235,11 @@ func GetAcesVehicles() (map[string][]AcesVehicleApplication, error) {
 		if part != nil {
 			v.Part = *part
 		}
-		mapKey := strconv.FormatFloat(v.Year, 'f', 1, 64) + "|" + v.Make + "|" + v.Model + "|" + v.Submodel
+		mapKey := strconv.FormatFloat(v.Year, 'f', 1, 64) + "|" + v.Make + "|" + v.Model + "|" + v.Submodel + "|" + v.Part
 		temp[mapKey] = append(temp[mapKey], con)
 	}
 
+	//combine configs, by Base+Submodel+PartID
 	for i, cons := range temp {
 		varray := strings.Split(i, "|")
 		yearFl, err := strconv.ParseFloat(varray[0], 64)
@@ -249,6 +253,7 @@ func GetAcesVehicles() (map[string][]AcesVehicleApplication, error) {
 			Make:     varray[1],
 			Model:    varray[2],
 			Submodel: strings.TrimSpace(varray[3]),
+			Part:     varray[4],
 		}
 		for _, c := range cons {
 			if c.Type == "" && c.Value == "" {
@@ -267,8 +272,8 @@ func GetAcesVehicles() (map[string][]AcesVehicleApplication, error) {
 
 		}
 		vs[v.Key] = append(vs[v.Key], v)
+		count++
 	}
-
+	log.Print(count, " individual ACES applications.")
 	return vs, nil
-
 }
