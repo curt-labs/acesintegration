@@ -1,15 +1,21 @@
 package main
 
 import (
+	"github.com/curt-labs/acesintegration/aries"
 	"github.com/curt-labs/acesintegration/curtaces"
 	"github.com/curt-labs/acesintegration/curtdmi"
+	"github.com/curt-labs/acesintegration/database"
 	"log"
 )
 
 func main() {
-
+	err := database.TestMongoConnection()
+	if err != nil {
+		log.Fatal(err)
+	}
 	curtAces()
 	curtDmi()
+	ariesDci()
 
 }
 
@@ -35,7 +41,7 @@ func curtAces() {
 }
 
 func curtDmi() {
-	dvs, err := curtdmi.GetDCIVehicles()
+	dvs, err := curtdmi.GetDCIVehicles("CUR20151219_ACESV3.xml")
 	if err != nil {
 		log.Print(err)
 	}
@@ -51,5 +57,25 @@ func curtDmi() {
 	if err != nil {
 		log.Print(err)
 	}
+	log.Print("DONE")
+}
+
+func ariesDci() {
+	dvs, err := curtdmi.GetDCIVehicles("CUR20151219_ACESV3.xml")
+	if err != nil {
+		log.Print(err)
+	}
+	log.Print(len(dvs), " DCI Base vehicles")
+	avs, err := aries.GetAriesVehicleApplications()
+	if err != nil {
+		log.Print(err)
+	}
+	log.Print(len(avs), " Aries Base vehicles in Mongo")
+
+	err = aries.ProcessAriesToDci(avs, dvs)
+	if err != nil {
+		log.Print(err)
+	}
+
 	log.Print("DONE")
 }

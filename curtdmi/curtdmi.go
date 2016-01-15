@@ -87,9 +87,9 @@ type Config struct {
 	Value string
 }
 
-func GetDCIVehicles() (map[string][]DmiVehicleApplication, error) {
+func GetDCIVehicles(filename string) (map[string][]DmiVehicleApplication, error) {
 	vehicleMap := make(map[string][]DmiVehicleApplication)
-	ds, err := GetDMIVehicleApplications()
+	ds, err := GetDMIVehicleApplications(filename)
 	if err != nil {
 		return vehicleMap, err
 	}
@@ -100,10 +100,10 @@ func GetDCIVehicles() (map[string][]DmiVehicleApplication, error) {
 	return vehicleMap, err
 }
 
-func GetDMIVehicleApplications() ([]DmiVehicleApplication, error) {
+func GetDMIVehicleApplications(filename string) ([]DmiVehicleApplication, error) {
 	var ds []DmiVehicleApplication
 
-	res, err := ParseXML()
+	res, err := ParseXML(filename)
 	if err != nil {
 		return ds, err
 	}
@@ -158,11 +158,11 @@ func GetDMIVehicleApplications() ([]DmiVehicleApplication, error) {
 	return ds, err
 }
 
-func ParseXML() (Result, error) {
+func ParseXML(filename string) (Result, error) {
 	var res Result
 
 	//Get File
-	f, err := os.Open("CUR20151219_ACESV3.xml")
+	f, err := os.Open(filename)
 	if err != nil {
 		return res, err
 	}
@@ -220,7 +220,7 @@ func (d *DmiVehicleApplication) processConfigs(app App) {
 
 //vcdb Maps
 var (
-	vcdbBaseVehicleStmt = `select b.BaseVehicleID, b.YearID, ma.Makename, mo.ModelName
+	vcdbBaseVehicleStmt = `select b.BaseVehicleID, b.YearID, ma.make, mo.model
 		from BaseVehicle b
 		join Make ma on ma.MakeID = b.MakeID
 		join Model mo on mo.ModelID = b.ModelID`

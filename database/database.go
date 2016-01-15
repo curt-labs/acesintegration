@@ -5,14 +5,19 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"gopkg.in/mgo.v2"
 )
 
 var (
-	EmptyDb = flag.String("clean", "", "bind empty database with structure defined")
-	DB      *sql.DB
-	VCDB    *sql.DB
+	EmptyDb      = flag.String("clean", "", "bind empty database with structure defined")
+	DB           *sql.DB
+	VCDB         *sql.DB
+	MongoSession *mgo.Session
+	MongoDB      string
 )
 
 type Scanner interface {
@@ -58,4 +63,48 @@ func Init() error {
 		}
 	}
 	return nil
+}
+
+func InitMongo() error {
+	var err error
+	if MongoSession == nil {
+		MongoSession, err = mgo.DialWithInfo(mongoConnectionString())
+		if err != nil {
+			return err
+		}
+	}
+	MongoDB = mongoConnectionString().Database
+	return nil
+}
+
+func mongoConnectionString() *mgo.DialInfo {
+	var info mgo.DialInfo
+	addr := os.Getenv("MONGO_URL")
+	if addr == "" {
+		addr = "127.0.0.1"
+	}
+	addrs := strings.Split(addr, ",")
+	info.Addrs = append(info.Addrs, addrs...)
+
+	info.Username = os.Getenv("MONGO_USERNAME")
+	info.Password = os.Getenv("MONGO_PASSWORD")
+	info.Database = os.Getenv("MONGO_DATABASE")
+	info.Timeout = time.Second * 2
+	info.FailFast = true
+	if info.Database == "" {
+		info.Database = "aries"
+	}
+	info.Source = "admin"
+
+	return &info
+}
+
+func TestMongoConnection() error {
+	err := InitMongo()
+	if err != nil {
+		return err
+	}
+
+	return MongoSession.Ping()
+
 }

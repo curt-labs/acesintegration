@@ -1,6 +1,8 @@
-package curtaces
+package aries
 
 import (
+	"github.com/curt-labs/acesintegration/curtdmi"
+
 	"encoding/csv"
 	"os"
 	"strconv"
@@ -8,16 +10,16 @@ import (
 )
 
 //CheckIntegrity
-func Process(cvs map[string][]CurtVehicleApplication, avs map[string][]AcesVehicleApplication) error {
+func ProcessAriesToDci(cvs map[string][]AriesVehicleApplication, dvs map[string][]curtdmi.DmiVehicleApplication) error {
 	//set up file
-	f, err := os.Create("integrityCurtAces.csv")
+	f, err := os.Create("integrityAriesDCI.csv")
 	if err != nil {
 		return err
 	}
 	writer := csv.NewWriter(f)
 
 	//write header
-	header := []string{"Part", "Year", "Make", "Model", "Style", "Integrated", "ACES Part Assoc.", "Year", "Make", "Model", "Submodel", "Configs", "Notes"}
+	header := []string{"Part", "Year", "Make", "Model", "Style", "Integrated", "DCI Part Assoc.", "Year", "Make", "Model", "Submodel", "Configs", "Notes"}
 	err = writer.Write(header)
 	if err != nil {
 		return err
@@ -25,16 +27,16 @@ func Process(cvs map[string][]CurtVehicleApplication, avs map[string][]AcesVehic
 
 	//check integrity & write lines
 	for key, cv := range cvs {
-		if matchingAcesVehicle, ok := avs[key]; !ok {
+		if matchingDciVehicle, ok := dvs[key]; !ok {
 			//write no match on Base Vehicle at all NO integrity
-			line := []string{cv[0].Part, strconv.FormatFloat(cv[0].Year, 'f', 1, 64), cv[0].Make, cv[0].Model, cv[0].Style, "N", "", "", "", "", "", "", "Base Vehicle (year|make|model) does not exist"}
+			line := []string{cv[0].Part, strconv.FormatFloat(cv[0].Year, 'f', 1, 64), cv[0].Make, cv[0].Model, cv[0].Style, "N", "", "", "", "", "", "", "Base Vehicle (year|make|model) does not exist in DCI data"}
 			err = writer.Write(line)
 			if err != nil {
 				return err
 			}
 			writer.Flush()
 		} else {
-			lines := determineIntegrity(cv, matchingAcesVehicle)
+			lines := determineIntegrity(cv, matchingDciVehicle)
 			err = writer.WriteAll(lines)
 			if err != nil {
 				return err
@@ -45,21 +47,21 @@ func Process(cvs map[string][]CurtVehicleApplication, avs map[string][]AcesVehic
 	return nil
 }
 
-func determineIntegrity(cvs []CurtVehicleApplication, avs []AcesVehicleApplication) [][]string {
+func determineIntegrity(cvs []AriesVehicleApplication, dvs []curtdmi.DmiVehicleApplication) [][]string {
 	var lines [][]string
 
 	for _, cv := range cvs {
 		//CurtVehicle style == "all"
 		if strings.ToLower(cv.Style) == "all" {
 			integrity := "N"
-			notes := "Curt Vehicle Style = all BUT an Aces non-config/non-submodel DOES NOT exists (need base)"
-			for _, av := range avs {
+			notes := "Curt Vehicle Style = all BUT a DCI non-config/non-submodel DOES NOT exists (need base)"
+			for _, av := range dvs {
 				if av.Submodel == "" && len(av.Configs) == 0 {
 					integrity = "Y"
-					notes = "Curt Vehicle Style = all AND an Aces non-config/non-submodel exists"
+					notes = "Curt Vehicle Style = all AND a DCI non-config/non-submodel exists"
 				}
 			}
-			for _, av := range avs {
+			for _, av := range dvs {
 				var cons string //stringify configs into comma separated sets
 				for i, c := range av.Configs {
 					if i > 0 {
@@ -71,18 +73,17 @@ func determineIntegrity(cvs []CurtVehicleApplication, avs []AcesVehicleApplicati
 			}
 		} else {
 			//CurtVehicle style != "all" -- AUTOMATICALLY NO INTEGRITY
-			integrity := "N" //Aces vehicle DOES NOT have a submodel or config(s)
-			notes := "Curt Vehicle Style != all AND an Aces vehicle with either configs or a submodel DOES NOT exists in our ACES data"
-			for _, av := range avs {
+			integrity := "N" //DCI vehicle DOES NOT have a submodel or config(s)
+			notes := "Curt Vehicle Style != all AND a DCI vehicle with either configs or a submodel DOES NOT exists"
+			for _, av := range dvs {
 				if av.Submodel != "" || len(av.Configs) > 0 {
-					//Aces vehicle DOES have a submodel or config(s)
+					//DCI vehicle DOES have a submodel or config(s)
 					integrity = "N"
-					notes = "Curt Vehicle Style != all AND an Aces vehicle with either configs or a submodel DOES exists (may/may not be a Curt style/Aces match) - REVIEW"
+					notes = "Curt Vehicle Style != all AND a DCI vehicle with either configs or a submodel DOES exists (may/may not be a Curt style/Aces match) - REVIEW"
 				}
 			}
 
-			for _, av := range avs {
-				// log.Print(av)
+			for _, av := range dvs {
 				var cons string //stringify configs into comma separated sets
 				for i, c := range av.Configs {
 					if i > 0 {
